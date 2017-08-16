@@ -7,7 +7,7 @@ var key = 0;
 var right = false;
 var left = false;
 var jump = false;
-var lvl1 = "file:///C:/Users/AT016059/Desktop/webgl/lvl1.map";
+var lvl1 = "file:///C:/Users/AT016059/Desktop/webgl/canvas-platformer/lvl1.map";
 k = {LEFT: 65, RIGHT: 68, JUMP: 87}
 
 document.addEventListener('keydown', function(event){
@@ -51,7 +51,11 @@ class Tile{
     getX(){return this.x}
     getY(){return this.y}
     getType(){return this.type}
-    render(ctx){ctx.fillRect(this.x, this.y, 32, 32);}
+    render(ctx){
+        ctx.fillStyle="#0A8692";
+        ctx.fillRect(this.x * 32, this.y * 32, 32, 32);
+        ctx.fillStyle="#FFFFFF";
+        ctx.fillRect(this.x * 32, this.y * 32, 32, 2);}
 }
 
 class Map{
@@ -65,7 +69,7 @@ class Map{
         var xMap = new Array();
         var totalCont = 0;
         while(totalCont < lines.length){
-            xMap.push(new Tile(totalCont % this.xTiles, totalCont / this.yTiles, lines[totalCont++]));
+            xMap.push(new Tile(totalCont % this.xTiles, parseInt(totalCont / this.xTiles), lines[totalCont++]));
             if(totalCont % this.xTiles == 0){
                 this.tiles.push(xMap);
                 xMap = [];
