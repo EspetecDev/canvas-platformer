@@ -7,7 +7,7 @@ var key = 0;
 var right = false;
 var left = false;
 var jump = false;
-var lvl1 = "file:///C:/Users/AT016059/Desktop/webgl/canvas-platformer/lvl1.map";
+var map;
 k = {LEFT: 65, RIGHT: 68, JUMP: 87}
 
 document.addEventListener('keydown', function(event){
@@ -41,6 +41,19 @@ document.addEventListener('keyup', function(event){
     }
 }, false);
 
+function loadJSON(callback) {
+    var xobj = new XMLHttpRequest();
+    xobj.overrideMimeType("application/json");
+    xobj.open('GET', 'lvl1.json', true);
+    xobj.onreadystatechange = function () {
+          if (xobj.readyState == 4 && xobj.status == "200") {
+            // Required use of an anonymous callback as .open will NOT return a value but simply returns undefined in asynchronous mode
+            callback(xobj.responseText);
+          }
+    };
+    xobj.send(null);
+ }
+
 class Tile{
     constructor(x, y, type){
         this.x = x;
@@ -52,50 +65,39 @@ class Tile{
     getY(){return this.y}
     getType(){return this.type}
     render(ctx){
-        ctx.fillStyle="#0A8692";
-        ctx.fillRect(this.x * 32, this.y * 32, 32, 32);
-        ctx.fillStyle="#FFFFFF";
-        ctx.fillRect(this.x * 32, this.y * 32, 32, 2);}
+        if(this.type){
+            ctx.fillStyle="#0A8692";
+            ctx.fillRect(this.x, this.y, 32, 32);
+            ctx.fillStyle="#000000";
+            ctx.strokeRect(this.x, this.y, 32, 32);
+        }
+    }
 }
 
 class Map{
     constructor(){
-        this.xTiles = 32;
+        this.xTiles = 25;
         this.yTiles = 19;
         this.tiles = new Array();
     }
 
-    saveTiles(lines) {
-        var xMap = new Array();
-        var totalCont = 0;
-        while(totalCont < lines.length){
-            xMap.push(new Tile(totalCont % this.xTiles, parseInt(totalCont / this.xTiles), lines[totalCont++]));
-            if(totalCont % this.xTiles == 0){
-                this.tiles.push(xMap);
-                xMap = [];
-            }
-        }
+    saveTiles(i, j, data){
+        this.tiles.push(new Tile(j*32, i*32, data));
+
+    }
+    loadMap(){
+        loadJSON(function(response) {
+            map = JSON.parse(response);
+            for(var i=0; i< map.rows.length; i++)
+                for(var j=0; j<map.rows[1].columns.length; j++)
+                    saveTiles(i,j,map.rows[i].columns[j]);
+        });
     }
 
-    loadMap(map){
-        var rawFile = new XMLHttpRequest();
-        rawFile.open("GET", map, false);
-        rawFile.onreadystatechange = () => {
-            if(rawFile.readyState === 4)
-                if(rawFile.status === 200 || rawFile.status == 0){
-                    var allText = rawFile.responseText;
-                    var lines = allText.split(' ');
-                    this.saveTiles(lines);
-                }
-        };
-        rawFile.send(null);
-    }
 
     renderMap(ctx){
-        for(var i = 0; i<this.tiles.length; i++)
-            for(var j = 0; j < this.tiles[0].length; j++)
-                this.tiles[i][j].render(ctx);
-
+        for(var i=0; i<this.tiles.length; i++)
+            this.tiles[i].render(ctx);
     }
 
 }
@@ -114,6 +116,17 @@ class Rectangle{
     }
 
     render(ctx){
+        // debug
+        ctx.fillStyle="#33cc33";
+        ctx.beginPath();
+        ctx.moveTo(this.x, this.y);
+        ctx.lineTo(this.x, this.y + 32);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(this.x, this.y);
+        ctx.lineTo(this.x + 32, this.y);
+        ctx.stroke();
+        ctx.fillStyle="#000000";
         ctx.fillRect(this.x, this.y, this.w, this.h);
     }
     move(){
@@ -139,15 +152,15 @@ class Rectangle{
                 console.log('Already on air.');
         }
         // Check collisions and apply physics
-        if(this.y >= 201){
-            this.y = 200;
-            this.floating = false;
-        }
+        this.checkVerticalCollision();
+        this.checkHorizontalCollision();
+
+
 
         if(this.ySpeed < 0)
             this.ySpeed += 5;
-        else if(this.ySpeed == 0)
-            this.ySpeed = 3;
+        // else if(this.ySpeed == 0)
+        //     this.ySpeed = 3;
 
         if(this.xSpeed < 0)
             this.xSpeed += 2;
@@ -159,23 +172,84 @@ class Rectangle{
 
         this.x += this.xSpeed;
         this.y += this.ySpeed;
-        console.log('Rect ' + this.id + " y: " + this.y + "px. Speed Y: " + this.ySpeed);
-        console.log('Rect ' + this.id + " x: " + this.x + "px. Speed X: " + this.xSpeed);
-        //key = 0;
+        ////console.log('Rect ' + this.id + " y: " + this.y + "px. Speed Y: " + this.ySpeed);
+        ////console.log('Rect ' + this.id + " x: " + this.x + "px. Speed X: " + this.xSpeed);
     }
+
+    checkVerticalCollision(ttype) {
+        // If jumping
+        if(this.ySpeed < 0){
+            var tx = this.x;
+            var ty = this.y + this.h;
+            var ttype = map.rows[parseInt(tx / 32)].columns[parseInt(ty / 32)];
+            if(ty < 0)   ty = 0;
+            if(ty > 600) ty = 600;
+
+            if(parseInt((ty + 32) / 32) * 32 < ty && ttype){
+                this.ySpeed = 0;
+                this.y = parseInt(ty / 32) * 32;
+            }
+        // Or falling
+        }else if(this.ySpeed > 0){
+            var tx = this.x;
+            var ty = this.y;
+            var ttype = map.rows[parseInt(tx / 32)].columns[parseInt(ty / 32)];
+            if(ty < 0)   ty = 0;
+            if(ty > 600) ty = 600;
+
+            if(parseInt(ty / 32) * 32 > ty + this.h && ttype){
+                this.ySpeed = 0;
+                this.y = parseInt(ty / 32) * 32;
+            }
+        }
+    }
+
+    checkHorizontalCollision() {
+        // If facing right
+        if(this.xSpeed > 0){
+            var tx = this.x + this.w;
+            var ty = this.y;
+            var ttype = map.rows[parseInt(tx / 32)].columns[parseInt(ty / 32)];
+            if(tx > 800) tx = 800;
+            if(tx < 0)   tx = 0;
+
+            if(parseInt(tx / 32) * 32 < tx + this.w && ttype){
+                this.xSpeed = 0;
+                this.x = parseInt(tx / 32) * 32;
+            }
+        // Or facing left
+        }else if(this.xSpeed < 0){
+            var tx = this.x;
+            var ty = this.y;
+            var ttype = map.rows[parseInt((tx + 32) / 32)].columns[parseInt(ty / 32)];
+            if(tx > 800) tx = 800;
+            if(tx < 0)   tx = 0;
+
+            if(parseInt(tx / 32) * 32 > tx && ttype){
+                this.xSpeed = 0;
+                this.x = parseInt(tx / 32) * 32;
+            }
+        }
+    }
+
     getX(){ return this.x; }
     getY(){ return this.y; }
     getId(){ return this.id; }
 
 }
+
+
 var r = new Rectangle(25, 200);
 var level = new Map();
 
+function saveTiles(i, j, data){
+    level.tiles.push(new Tile(j*32, i*32, data));
+}
 function update(ctx){
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    // console.log('ID: '+r.getId()+' x: '+r.getX()+', y:'+r.getY());
+    // //console.log('ID: '+r.getId()+' x: '+r.getX()+', y:'+r.getY());
 
-    console.log(key);
+    //console.log(key);
     r.move();
     r.render(ctx);
     level.renderMap(ctx);
@@ -187,12 +261,12 @@ function draw() {
     var height = 600;
     var width = 800;
 
-    level.loadMap(lvl1);
+    level.loadMap();
 
     if(canvas.getContext)
         setInterval(function() { update(ctx); },16);
-    else
-        console.log('No context');
+    //else
+        //console.log('No context');
 
 
 }
