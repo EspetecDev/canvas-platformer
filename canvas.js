@@ -134,22 +134,22 @@ class Rectangle{
         if(left){
             if(this.xSpeed == 0)
                 this.xSpeed = -maxX;
-            else
-                console.log('Already left vel.');
+            // else
+            //     console.log('Already left vel.');
         }
         if(right){
             if(this.xSpeed == 0)
                 this.xSpeed = maxX;
-            else
-                console.log('Already right vel.');
+            // else
+            //     console.log('Already right vel.');
         }
         if(jump){
             if(!this.floating){
                 this.ySpeed = -maxY;
                 this.floating = true;
             }
-            else
-                console.log('Already on air.');
+            // else
+            //     console.log('Already on air.');
         }
         // Check collisions and apply physics
         this.checkVerticalCollision();
