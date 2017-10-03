@@ -44,7 +44,7 @@ document.addEventListener('keyup', function(event){
 function loadJSON(callback) {
     var xobj = new XMLHttpRequest();
     xobj.overrideMimeType("application/json");
-    xobj.open('GET', 'lvl1.json', true);
+    xobj.open('GET', 'lvl1.map', true);
     xobj.onreadystatechange = function () {
           if (xobj.readyState == 4 && xobj.status == "200") {
             // Required use of an anonymous callback as .open will NOT return a value but simply returns undefined in asynchronous mode
@@ -65,39 +65,56 @@ class Tile{
     getY(){return this.y}
     getType(){return this.type}
     render(ctx){
-        if(this.type){
+        if(this.type == "1"){
             ctx.fillStyle="#0A8692";
             ctx.fillRect(this.x, this.y, 32, 32);
-            ctx.fillStyle="#000000";
+            ctx.fillStyle="#FF008F";
             ctx.strokeRect(this.x, this.y, 32, 32);
+        }
+        else if(this.type == "0"){
+            ctx.fillStyle="#f442aa";
+            ctx.fillRect(this.x, this.y, 32, 32);
         }
     }
 }
 
 // Map Object
 function Map(){
-        this.xTiles = 25;
+        this.xTiles = 32;
         this.yTiles = 19;
+        this.contI = 0;
+        this.contJ = 0;
         this.tiles = new Array();
 }
 
 Map.prototype.saveTiles = function(i, j, data){
-    this.tiles.push(new Tile(j*32, i*32, data));
+    this.tiles.push(new Tile(i*32, j*32, data));
 };
 
 Map.prototype.loadMap = function(){
     loadJSON(function(response) {
-        map = JSON.parse(response);
-        for(var i=0; i< map.rows.length; i++)
-            for(var j=0; j<map.rows[1].columns.length; j++)
-                saveTiles(i,j,map.rows[i].columns[j]);
+        var temparray = new Array();
+        map = response.split("\n");
+        for(var i=0; i< map.length; i++){
+            dataArray = map[i].split(" ");
+            temparray.push(dataArray);
+            for(var j=0; j<dataArray.length; j++)
+                level.saveTiles(j, i, dataArray[j]);
+        }
+        map = temparray;
     });
 };
 
 
 Map.prototype.renderMap = function(ctx){
+    // Rendering this way draws all tiles correctly
     for(var i=0; i<this.tiles.length; i++)
-        this.tiles[i].render(ctx);
+        if(this.tiles[i].type == "0")
+            this.tiles[i].render(ctx);
+
+    for(var i=0; i<this.tiles.length; i++)
+        if(this.tiles[i].type == "1")
+            this.tiles[i].render(ctx);
 };
 
 
@@ -108,125 +125,95 @@ function Rectangle(x, y){
         this.h = 25;
         this.x = x;
         this.y = y;
-        this.xSpeed = 0;
-        this.ySpeed = 0;
-        this.floating = false;
+        this.xAccel = 0;
+        this.yAccel = 0;
+        this.floating = true;
 }
 
 Rectangle.prototype.render = function(ctx){
-    // debug
-    ctx.fillStyle="#33cc33";
-    ctx.beginPath();
-    ctx.moveTo(this.x, this.y);
-    ctx.lineTo(this.x, this.y + 32);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(this.x, this.y);
-    ctx.lineTo(this.x + 32, this.y);
-    ctx.stroke();
     ctx.fillStyle="#000000";
     ctx.fillRect(this.x, this.y, this.w, this.h);
 };
 
 Rectangle.prototype.move = function(){
+    // Move v2.0
 
-    if(left){
-        if(this.xSpeed == 0)
-            this.xSpeed = -maxX;
-        // else
-        //     console.log('Already left vel.');
-    }
-    if(right){
-        if(this.xSpeed == 0)
-            this.xSpeed = maxX;
-        // else
-        //     console.log('Already right vel.');
-    }
+    // Horizontal
+    if(right)
+        this.xAccel += 1.0;
+    else if(left)
+        this.xAccel -= 1.0;
+    else
+        this.xAccel = 0.0;
+
     if(jump){
-        if(!this.floating){
-            this.ySpeed = -maxY;
-            this.floating = true;
-        }
-        // else
-        //     console.log('Already on air.');
+        this.floating = true;
+        this.yAccel = -2.0;
     }
-    // Check collisions and apply physics
-    this.checkVerticalCollision();
-    this.checkHorizontalCollision();
+    if(this.floating)
+        this.yAccel = 2.0;
+
+    this.checkVerticalCollision()
+    this.checkHorizontalCollision()
+
+    this.x += this.xAccel;
+    this.y += this.yAccel;
 
 
-
-    if(this.ySpeed < 0)
-        this.ySpeed += 5;
-    // else if(this.ySpeed == 0)
-    //     this.ySpeed = 3;
-
-    if(this.xSpeed < 0)
-        this.xSpeed += 2;
-    else if(this.xSpeed > 0)
-        this.xSpeed -= 2;
-
-    if(this.xSpeed < 2 && this.xSpeed > -2) this.xSpeed = 0;
-
-
-    this.x += this.xSpeed;
-    this.y += this.ySpeed;
-    ////console.log('Rect ' + this.id + " y: " + this.y + "px. Speed Y: " + this.ySpeed);
-    ////console.log('Rect ' + this.id + " x: " + this.x + "px. Speed X: " + this.xSpeed);
 };
 
 Rectangle.prototype.checkVerticalCollision = function(ttype) {
     // If jumping
-    if(this.ySpeed < 0){
-        var tx = this.x;
-        var ty = this.y + this.h;
-        var ttype = map.rows[parseInt(tx / 32)].columns[parseInt(ty / 32)];
+    if(this.yAccel < 0){
+        var ty = this.y;
         if(ty < 0)   ty = 0;
-        if(ty > 600) ty = 600;
+        if(ty > 608) ty = 608;
 
-        if(parseInt((ty + 32) / 32) * 32 < ty && ttype){
-            this.ySpeed = 0;
-            this.y = parseInt(ty / 32) * 32;
+        for(var tx=this.x; tx<this.x+this.w; tx++){
+            var ttype = map[Math.trunc(tx / 32)][Math.trunc(ty / 32)];
+            if(Math.trunc(ty) < ty + this.h && ttype == "1")
+                this.yAccel = 0;
         }
     // Or falling
-    }else if(this.ySpeed > 0){
-        var tx = this.x;
-        var ty = this.y;
-        var ttype = map.rows[parseInt(tx / 32)].columns[parseInt(ty / 32)];
+    }else if(this.yAccel > 0){
+        var ty = this.y + this.h;
         if(ty < 0)   ty = 0;
-        if(ty > 600) ty = 600;
+        if(ty > 608) ty = 608;
 
-        if(parseInt(ty / 32) * 32 > ty + this.h && ttype){
-            this.ySpeed = 0;
-            this.y = parseInt(ty / 32) * 32;
+        for(var tx=this.x; tx<this.x+this.w; tx++){
+            var ttype = map[Math.trunc(ty / 32)][Math.trunc(tx / 32)];
+            if(ttype != "0") console.log('stop');
+            if(Math.trunc(ty) > ty && ttype == "1")
+                this.yAccel = 0;
         }
     }
 };
 
 Rectangle.prototype.checkHorizontalCollision = function() {
+    
     // If facing right
-    if(this.xSpeed > 0){
+    if(this.xAccel > 0){
         var tx = this.x + this.w;
-        var ty = this.y;
-        var ttype = map.rows[parseInt(tx / 32)].columns[parseInt(ty / 32)];
-        if(tx > 800) tx = 800;
+        if(tx > 1024) tx = 1024;
         if(tx < 0)   tx = 0;
-
-        if(parseInt(tx / 32) * 32 < tx + this.w && ttype){
-            this.xSpeed = 0;
-            this.x = parseInt(tx / 32) * 32;
+        
+        for(var ty=this.y; ty<this.y+this.h; ty++){
+            var ttype = map[Math.trunc(tx / 32)][Math.trunc(ty / 32)];
+            if(Math.trunc(tx) < tx + this.w && ttype == "1")
+                this.xAccel = 0;
+            
         }
+            
     // Or facing left
-    }else if(this.xSpeed < 0){
+    }else if(this.xAccel < 0){
         var tx = this.x;
-        var ty = this.y;
-        var ttype = map.rows[parseInt((tx + 32) / 32)].columns[parseInt(ty / 32)];
-        if(tx > 800) tx = 800;
+        if(tx > 1024) tx = 1024;
         if(tx < 0)   tx = 0;
 
-        if(parseInt(tx / 32) * 32 > tx && ttype){
-            this.xSpeed = 0;
-            this.x = parseInt(tx / 32) * 32;
+        for(var ty=this.y; ty<this.y+this.h; ty++){
+            var ttype = map[Math.trunc(tx / 32)][Math.trunc(ty / 32)];
+            if(Math.trunc(tx) > tx && ttype == "1")
+                this.xAccel = 0;
         }
     }
 };
@@ -236,17 +223,12 @@ Rectangle.prototype.checkHorizontalCollision = function() {
 var r = new Rectangle(25, 200);
 var level = new Map();
 
-function saveTiles(i, j, data){
-    level.tiles.push(new Tile(j*32, i*32, data));
-}
 function update(ctx){
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    // //console.log('ID: '+r.getId()+' x: '+r.getX()+', y:'+r.getY());
-
-    //console.log(key);
+    
+    level.renderMap(ctx);
     r.move();
     r.render(ctx);
-    level.renderMap(ctx);
 }
 
 function draw() {
@@ -259,8 +241,4 @@ function draw() {
 
     if(canvas.getContext)
         setInterval(function() { update(ctx); },16);
-    //else
-        //console.log('No context');
-
-
 }
