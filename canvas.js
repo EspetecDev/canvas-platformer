@@ -148,17 +148,22 @@ Rectangle.prototype.move = function () {
   }
   if (this.floating)
     this.yAccel = 2.0;
+  var that = this;
+  setTimeout(function(){ 
+      that.checkVerticalCollision(); 
+    },0);
+  setTimeout(function(){ 
+      that.checkHorizontalCollision(); 
+    },0);
 
-  this.checkVerticalCollision()
-  this.checkHorizontalCollision()
+  
 
-  this.x += this.xAccel;
-  this.y += this.yAccel;
 
 
 };
 
-Rectangle.prototype.checkVerticalCollision = function (ttype) {
+Rectangle.prototype.checkVerticalCollision = function () {
+    
   // If jumping
   if (this.yAccel < 0) {
     var ty = this.y;
@@ -187,6 +192,7 @@ Rectangle.prototype.checkVerticalCollision = function (ttype) {
       }
     }
   }
+  this.y += this.yAccel;
 };
 
 Rectangle.prototype.checkHorizontalCollision = function () {
@@ -216,6 +222,7 @@ Rectangle.prototype.checkHorizontalCollision = function () {
         this.xAccel = 0;
     }
   }
+  this.x += this.xAccel;
 };
 
 
