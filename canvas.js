@@ -92,13 +92,13 @@ Map.prototype.saveTiles = function (i, j, data) {
 Map.prototype.loadMap = function (initGame) {
   fetch('lvl1.map').then(
     function (response) {
-        return response.text();
-    }).then(function(response){
-      var temparray = new Array();
-      map = response.split("\n").map(row=>row.split(" "));
-      map.forEach((row,j)=>row.forEach((cell,i)=>level.saveTiles(i,j,cell)));
-      initGame();
-    });
+      return response.text();
+    }).then(function (response) {
+    var temparray = new Array();
+    map = response.split("\n").map(row => row.split(" "));
+    map.forEach((row, j) => row.forEach((cell, i) => level.saveTiles(i, j, cell)));
+    initGame();
+  });
 };
 
 
@@ -149,53 +149,68 @@ Rectangle.prototype.move = function () {
   if (this.floating)
     this.yAccel = 2.0;
   var that = this;
-  setTimeout(function(){ 
-      that.checkVerticalCollision(); 
-    },0);
-  setTimeout(function(){ 
-      that.checkHorizontalCollision(); 
-    },0);
-
-  
-
-
+  setTimeout(function () {
+    that.checkVerticalCollision();
+  }, 0);
+  setTimeout(function () {
+    that.checkHorizontalCollision();
+  }, 0);
 
 };
 
 Rectangle.prototype.checkVerticalCollision = function () {
-    
+  function checkIt(rect) {
+    var ttype = "0";
+    for (var tx = rect.x; tx < rect.x + rect.w; tx++) {
+      var pos = {
+        x: Math.trunc(tx / 32),
+        y: Math.trunc(ty / 32)
+      };
+
+      if (map[pos.y][pos.x] != "0") {
+        ttype=map[pos.y][pos.x];
+        break;
+      }
+    }
+    return ttype;
+
+  }
   // If jumping
   if (this.yAccel < 0) {
     var ty = this.y;
     if (ty < 0) ty = 0;
     if (ty > 608) ty = 608;
+    if (checkIt(this)!="0") this.yAccel = 0;
 
-    for (var tx = this.x; tx < this.x + this.w; tx++) {
-      var ttype = map[Math.trunc(tx / 32)][Math.trunc(ty / 32)];
-      if (Math.trunc(ty) < ty + this.h && ttype == "1")
-        this.yAccel = 0;
-    }
     // Or falling
   } else if (this.yAccel > 0) {
     var ty = this.y + this.h;
     if (ty < 0) ty = 0;
     if (ty > 608) ty = 608;
-
-    for (var tx = this.x; tx < this.x + this.w; tx++) {
-      var ttype = map[Math.trunc(ty / 32)][Math.trunc(tx / 32)];
-      if (ttype != "0") {
-        console.log('stop');
-        this.yAccel = 0;
-      }
-      if (Math.trunc(ty) > ty && ttype == "1") {
-        this.yAccel = 0;
-      }
-    }
+    if (checkIt(this)!="0") this.yAccel = 0;
   }
+
   this.y += this.yAccel;
 };
 
 Rectangle.prototype.checkHorizontalCollision = function () {
+  function checkIt(rect) {
+    var ttype = "0";
+    for (var ty = rect.y; ty < (rect.y + rect.h) - 2; ty++) { //Magic number: -2 to avoid collisions with the ground
+      var pos = {
+        x: Math.trunc(tx / 32),
+        y: Math.trunc(ty / 32)
+      };
+
+      if (map[pos.y][pos.x] != "0") {
+        ttype = map[pos.y][pos.x];
+        break;
+      }
+
+      console.log(ty, pos, ttype);
+    }
+    return ttype;
+  }
 
   // If facing right
   if (this.xAccel > 0) {
@@ -203,12 +218,9 @@ Rectangle.prototype.checkHorizontalCollision = function () {
     if (tx > 1024) tx = 1024;
     if (tx < 0) tx = 0;
 
-    for (var ty = this.y; ty < this.y + this.h; ty++) {
-      var ttype = map[Math.trunc(tx / 32)][Math.trunc(ty / 32)];
-      if (Math.trunc(tx) < tx + this.w && ttype == "1")
-        this.xAccel = 0;
 
-    }
+    if (checkIt(this) != "0")
+      this.xAccel = 0;
 
     // Or facing left
   } else if (this.xAccel < 0) {
@@ -216,11 +228,8 @@ Rectangle.prototype.checkHorizontalCollision = function () {
     if (tx > 1024) tx = 1024;
     if (tx < 0) tx = 0;
 
-    for (var ty = this.y; ty < this.y + this.h; ty++) {
-      var ttype = map[Math.trunc(tx / 32)][Math.trunc(ty / 32)];
-      if (Math.trunc(tx) > tx && ttype == "1")
-        this.xAccel = 0;
-    }
+    if (checkIt(this) != "0")
+      this.xAccel = 0;
   }
   this.x += this.xAccel;
 };
@@ -231,11 +240,13 @@ var r = new Rectangle(25, 200);
 var level = new Map();
 
 function update(ctx) {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  setTimeout(function () {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  level.renderMap(ctx);
-  r.move();
-  r.render(ctx);
+    level.renderMap(ctx);
+    r.move();
+    r.render(ctx);
+  }, 0);
 }
 
 function draw() {
